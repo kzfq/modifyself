@@ -110,6 +110,58 @@ class Route:
     def join_guild(cls, invite_code: str):
         return cls("POST", f"/invites/{invite_code}")
 
+    @classmethod
+    def edit_guild(cls, guild_id: int):
+        return cls("PATCH", "/guilds/{guild_id}", guild_id=guild_id)
+
+    @classmethod
+    def guild_members(cls, guild_id: int):
+        return cls("GET", "/guilds/{guild_id}/members", guild_id=guild_id)
+
+    @classmethod
+    def search_guild_members(cls, guild_id: int):
+        return cls("GET", "/guilds/{guild_id}/members/search", guild_id=guild_id)
+
+    @classmethod
+    def kick_member(cls, guild_id: int, user_id: int):
+        return cls("DELETE", "/guilds/{guild_id}/members/{user_id}", guild_id=guild_id, user_id=user_id)
+
+    @classmethod
+    def ban_member(cls, guild_id: int, user_id: int):
+        return cls("PUT", "/guilds/{guild_id}/bans/{user_id}", guild_id=guild_id, user_id=user_id)
+
+    @classmethod
+    def unban_member(cls, guild_id: int, user_id: int):
+        return cls("DELETE", "/guilds/{guild_id}/bans/{user_id}", guild_id=guild_id, user_id=user_id)
+
+    @classmethod
+    def guild_bans(cls, guild_id: int):
+        return cls("GET", "/guilds/{guild_id}/bans", guild_id=guild_id)
+
+    @classmethod
+    def guild_roles(cls, guild_id: int):
+        return cls("GET", "/guilds/{guild_id}/roles", guild_id=guild_id)
+
+    @classmethod
+    def create_role(cls, guild_id: int):
+        return cls("POST", "/guilds/{guild_id}/roles", guild_id=guild_id)
+
+    @classmethod
+    def edit_role(cls, guild_id: int, role_id: int):
+        return cls("PATCH", "/guilds/{guild_id}/roles/{role_id}", guild_id=guild_id, role_id=role_id)
+
+    @classmethod
+    def delete_role(cls, guild_id: int, role_id: int):
+        return cls("DELETE", "/guilds/{guild_id}/roles/{role_id}", guild_id=guild_id, role_id=role_id)
+
+    @classmethod
+    def invite(cls, invite_code: str):
+        return cls("GET", f"/invites/{invite_code}")
+
+    @classmethod
+    def delete_invite(cls, invite_code: str):
+        return cls("DELETE", f"/invites/{invite_code}")
+
     # --- Channels ---
     @classmethod
     def channel(cls, channel_id: int):
@@ -205,6 +257,14 @@ class Route:
             message_id=message_id,
         )
 
+    @classmethod
+    def create_thread_in_channel(cls, channel_id: int):
+        return cls("POST", "/channels/{channel_id}/threads", channel_id=channel_id)
+
+    @classmethod
+    def channel_threads(cls, channel_id: int):
+        return cls("GET", "/channels/{channel_id}/threads/active", channel_id=channel_id)
+
     # --- Reactions ---
     @classmethod
     def add_reaction(cls, channel_id: int, message_id: int, emoji: str):
@@ -251,6 +311,10 @@ class Route:
     # --- DMs ---
     @classmethod
     def create_dm(cls):
+        return cls("POST", "/users/@me/channels")
+
+    @classmethod
+    def create_group_dm(cls):
         return cls("POST", "/users/@me/channels")
 
     # --- Auth ---

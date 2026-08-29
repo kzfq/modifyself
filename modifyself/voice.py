@@ -99,12 +99,27 @@ class VoiceClient:
         """Connect to the voice channel."""
         if self._connected:
             return True
-        
+
         try:
             import websockets
-            ws_url = f"wss://{self.endpoint}?v=4"
-            self._ws = await websockets.connect(ws_url)
-            
+            ws_url = f"wss://{self.endpoint}?v=8"
+            self._ws = await websockets.connect(
+                ws_url,
+                additional_headers={"Origin": "https://discord.com"},
+            )
+
+            # Wait for HELLO (op 8) before identifying
+            hello = await self._wait_for_op(8, timeout=10)
+            if not hello:
+                logger.error("Voice: did not receive HELLO")
+                return False
+
+            heartbeat_interval = hello["d"]["heartbeat_interval"]
+            self._heartbeat_task = asyncio.create_task(
+                self._heartbeat_loop(heartbeat_interval)
+            )
+
+            # Send IDENTIFY (op 0)
             await self._send({
                 "op": 0,
                 "d": {
@@ -112,23 +127,34 @@ class VoiceClient:
                     "user_id": str(self.client.user.id),
                     "session_id": self.session_id,
                     "token": self.token,
-                }
+                },
             })
-            
-            ready = await self._wait_for_event("ready", timeout=10)
+
+            # Wait for READY (op 2)
+            ready = await self._wait_for_op(2, timeout=10)
             if ready:
+                d = ready["d"]
+                self._ssrc = d.get("ssrc")
+                self._voice_ip = d.get("ip")
+                self._voice_port = d.get("port")
                 self._connected = True
                 self._ready.set()
-                logger.info("Voice connection ready")
+                logger.info(f"Voice connection ready (ssrc={self._ssrc})")
                 await self._on_ready()
                 return True
-            
+
             return False
-            
+
         except Exception as e:
             logger.error(f"Voice connection failed: {e}")
             await self._on_error(e)
             return False
+
+    async def _heartbeat_loop(self, interval_ms: float) -> None:
+        interval = interval_ms / 1000
+        while self._connected and not self._closed:
+            await self._send({"op": 3, "d": int(asyncio.get_event_loop().time() * 1000)})
+            await asyncio.sleep(interval)
 
     async def disconnect(self) -> None:
         """Disconnect from voice channel."""
@@ -169,20 +195,20 @@ class VoiceClient:
         if self._ws:
             await self._ws.send(json.dumps(data))
 
-    async def _wait_for_event(self, event_type: str, timeout: float = 10) -> Optional[dict]:
-        """Wait for a specific voice event."""
+    async def _wait_for_op(self, op: int, timeout: float = 10) -> Optional[dict]:
+        """Wait for a specific voice gateway opcode."""
         start = time.time()
         while time.time() - start < timeout:
             if self._ws:
                 try:
                     msg = await asyncio.wait_for(self._ws.recv(), timeout=1)
                     data = json.loads(msg)
-                    if data.get("op") == 2 and data.get("t") == event_type.upper():
+                    if data.get("op") == op:
                         return data
                 except asyncio.TimeoutError:
                     continue
                 except Exception as e:
-                    logger.error(f"Error waiting for event: {e}")
+                    logger.error(f"Error waiting for voice op {op}: {e}")
                     break
         return None
 

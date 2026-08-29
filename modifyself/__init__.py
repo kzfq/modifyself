@@ -9,7 +9,7 @@ from .commands.core import command
 from .commands.cog import Cog
 from .commands.context import Context
 
-from .models.relationship import Relationship
+from .models.relationship import Relationship, RelationshipType
 from .models.billing import PaymentSource, Subscription
 from .models.settings import GuildSettings, UserSettings
 from .models.webhook import Webhook, WebhookMessage
@@ -28,7 +28,7 @@ from .core.enums import (
 
 __all__ = [
     "Client", "command", "Cog", "Context",
-    "Relationship", "PaymentSource", "Subscription",
+    "Relationship", "RelationshipType", "PaymentSource", "Subscription",
     "GuildSettings", "UserSettings", "Webhook", "WebhookMessage",
     "Activity", "ActivityType", "ActivityFlags",
     "spotify_activity", "youtube_activity", "xbox_activity",

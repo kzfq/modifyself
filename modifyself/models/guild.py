@@ -68,16 +68,22 @@ class Guild(DiscordObject):
             int(data["afk_channel_id"]) if data.get("afk_channel_id") else None
         )
         self.afk_timeout = data.get("afk_timeout", 0)
-        self.verification_level = VerificationLevel(
-            data.get("verification_level", 0)
-        )
-        self.default_notifications = NotificationLevel(
-            data.get("default_message_notifications", 0)
-        )
-        self.explicit_content_filter = ExplicitContentFilterLevel(
-            data.get("explicit_content_filter", 0)
-        )
-        self.mfa_level = MFALevel(data.get("mfa_level", 0))
+        try:
+            self.verification_level = VerificationLevel(data.get("verification_level", 0))
+        except ValueError:
+            self.verification_level = data.get("verification_level", 0)
+        try:
+            self.default_notifications = NotificationLevel(data.get("default_message_notifications", 0))
+        except ValueError:
+            self.default_notifications = data.get("default_message_notifications", 0)
+        try:
+            self.explicit_content_filter = ExplicitContentFilterLevel(data.get("explicit_content_filter", 0))
+        except ValueError:
+            self.explicit_content_filter = data.get("explicit_content_filter", 0)
+        try:
+            self.mfa_level = MFALevel(data.get("mfa_level", 0))
+        except ValueError:
+            self.mfa_level = data.get("mfa_level", 0)
         self.system_channel_id = (
             int(data["system_channel_id"]) if data.get("system_channel_id") else None
         )
@@ -96,7 +102,10 @@ class Guild(DiscordObject):
             else None
         )
         self.max_video_channel_users = data.get("max_video_channel_users", 0)
-        self.nsfw_level = NSFWLevel(data.get("nsfw_level", 0))
+        try:
+            self.nsfw_level = NSFWLevel(data.get("nsfw_level", 0))
+        except ValueError:
+            self.nsfw_level = data.get("nsfw_level", 0)
 
         # Parse nested members if present
         from .member import Member

@@ -11,6 +11,7 @@ from .models.message import Message
 from .models.user import User
 from .models.member import Member
 from .components import ComponentType, ButtonStyle, TextInputStyle, ActionRow, Component
+from .http.route import Route
 
 class InteractionType(IntEnum):
     PING = 1
@@ -91,12 +92,11 @@ class Interaction:
         payload["data"].update(kwargs)
         
         await self._state.http.request(
-            method="POST",
-            url=f"/interactions/{self.id}/{self.token}/callback",
+            Route("POST", f"/interactions/{self.id}/{self.token}/callback"),
             json=payload,
         )
         return payload
-    
+
     async def update(
         self,
         content: Optional[str] = None,
@@ -116,14 +116,12 @@ class Interaction:
         if components is not None:
             payload["data"]["components"] = [c.to_dict() for c in components]
         payload["data"].update(kwargs)
-        
         await self._state.http.request(
-            method="POST",
-            url=f"/interactions/{self.id}/{self.token}/callback",
+            Route("POST", f"/interactions/{self.id}/{self.token}/callback"),
             json=payload,
         )
         return payload
-    
+
     async def defer(self, ephemeral: bool = False) -> None:
         """Defer the interaction response."""
         payload = {
@@ -131,11 +129,10 @@ class Interaction:
             "data": {"flags": 64 if ephemeral else 0},
         }
         await self._state.http.request(
-            method="POST",
-            url=f"/interactions/{self.id}/{self.token}/callback",
+            Route("POST", f"/interactions/{self.id}/{self.token}/callback"),
             json=payload,
         )
-    
+
     async def defer_update(self) -> None:
         """Defer the interaction response for message updates."""
         payload = {
@@ -143,11 +140,10 @@ class Interaction:
             "data": {},
         }
         await self._state.http.request(
-            method="POST",
-            url=f"/interactions/{self.id}/{self.token}/callback",
+            Route("POST", f"/interactions/{self.id}/{self.token}/callback"),
             json=payload,
         )
-    
+
     async def show_modal(self, modal) -> None:
         """Show a modal to the user."""
         payload = {
@@ -155,11 +151,10 @@ class Interaction:
             "data": modal.to_dict(),
         }
         await self._state.http.request(
-            method="POST",
-            url=f"/interactions/{self.id}/{self.token}/callback",
+            Route("POST", f"/interactions/{self.id}/{self.token}/callback"),
             json=payload,
         )
-    
+
     async def edit_original_response(
         self,
         content: Optional[str] = None,
@@ -176,18 +171,15 @@ class Interaction:
         if components is not None:
             payload["components"] = [c.to_dict() for c in components]
         payload.update(kwargs)
-        
         return await self._state.http.request(
-            method="PATCH",
-            url=f"/webhooks/{self.application_id}/{self.token}/messages/@original",
+            Route("PATCH", f"/webhooks/{self.application_id}/{self.token}/messages/@original"),
             json=payload,
         )
-    
+
     async def delete_original_response(self) -> None:
         """Delete the original response message."""
         await self._state.http.request(
-            method="DELETE",
-            url=f"/webhooks/{self.application_id}/{self.token}/messages/@original",
+            Route("DELETE", f"/webhooks/{self.application_id}/{self.token}/messages/@original"),
         )
 
 
