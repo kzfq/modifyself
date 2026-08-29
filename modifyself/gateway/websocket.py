@@ -281,23 +281,27 @@ class GatewayWebSocket:
             
         elif op == 1:
             await self.send_json({"op": 1, "d": self._sequence})
-            
-        elif op == 13:
-            logger.info("Guild subscriptions ready")
+
+        elif op == 40:
+            # QoS/performance monitoring — acknowledge silently
+            logger.debug(f"Gateway QoS update: seq={data.get('seq')} active={data.get('active')}")
+
+        elif op == 41:
+            # Client init sync — server echoes our session state back
+            logger.debug(f"Gateway init sync: session={data.get('session_id')}")
 
     async def _identify(self) -> None:
-        capabilities = 1767421
-        
         identify_payload = {
             "op": 2,
             "d": {
                 "token": self._token,
-                "capabilities": capabilities,
+                "capabilities": 1767421,
                 "properties": {
                     "os": "Windows",
                     "browser": "Chrome",
                     "device": "",
-                    "system_locale": "en-US",
+                    "system_locale": self._headers.profile.locale,
+                    "has_client_mods": False,
                     "browser_user_agent": self._headers.profile.user_agent,
                     "browser_version": self._headers.profile.browser_version,
                     "os_version": "10",
@@ -305,6 +309,12 @@ class GatewayWebSocket:
                     "referring_domain": "",
                     "referrer_current": "",
                     "referring_domain_current": "",
+                    "release_channel": "stable",
+                    "client_build_number": self._headers.build_number,
+                    "client_event_source": None,
+                    "client_launch_id": self._headers._launch_id,
+                    "is_fast_connect": self._identify_sent,
+                    "installation_id": self._headers._installation_id,
                 },
                 "presence": {
                     "status": "online",
@@ -322,7 +332,7 @@ class GatewayWebSocket:
                 },
             },
         }
-        
+
         await self.send_json(identify_payload)
         logger.info("Identify sent (user account - no intents)")
 
@@ -415,6 +425,10 @@ class GatewayWebSocket:
             await asyncio.sleep(0.5)
             
         logger.info(f"Subscribed to {len(self._subscriptions)} guilds")
+
+    async def subscribe_channel(self, channel_id: int) -> None:
+        """Subscribe to typing/presence events in a DM or channel (op 13)."""
+        await self.send_json({"op": 13, "d": {"channel_id": str(channel_id)}})
 
     async def send_json(self, data: dict) -> None:
         if not self._ws:
