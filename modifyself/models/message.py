@@ -69,7 +69,10 @@ class Message(DiscordObject):
         self.embeds = data.get("embeds", [])
         self.reactions = data.get("reactions", [])
         self.pinned = data.get("pinned", False)
-        self.type = MessageType(data.get("type", 0))
+        try:
+            self.type = MessageType(data.get("type", 0))
+        except ValueError:
+            self.type = data.get("type", 0)
         self.guild_id = int(data["guild_id"]) if data.get("guild_id") else None
         self.flags = data.get("flags", 0)
         self.sticker_items = data.get("sticker_items", [])

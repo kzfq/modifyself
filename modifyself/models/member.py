@@ -24,6 +24,8 @@ class Member(DiscordObject):
         "premium_since",
         "pending",
         "avatar",
+        "flags",
+        "communication_disabled_until",
     )
 
     def __init__(self, *, state: "ConnectionState", data: dict, guild_id: int):
@@ -51,6 +53,12 @@ class Member(DiscordObject):
         )
         self.pending = data.get("pending", False)
         self.avatar = data.get("avatar")
+        self.flags = data.get("flags", 0)
+        self.communication_disabled_until = (
+            parse_time(data["communication_disabled_until"])
+            if data.get("communication_disabled_until")
+            else None
+        )
 
     @property
     def _user(self):

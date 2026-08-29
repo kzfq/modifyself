@@ -9,9 +9,10 @@ from typing import TYPE_CHECKING, Optional, Dict, Any, List
 from .core.snowflake import Snowflake
 from .models.user import User
 from .models.guild import Guild
-from .models.channel import channel_factory, Channel
+from .models.channel import channel_factory, Channel, DMChannel, GroupChannel
 from .models.message import Message
 from .models.member import Member
+from .models.relationship import Relationship
 
 if TYPE_CHECKING:
     from .http.client import HTTPClient
@@ -46,6 +47,7 @@ class ConnectionState:
         "_guilds",
         "_channels",
         "_messages",
+        "_relationships",
         "user",
         "session_id",
         "_ready",
@@ -60,6 +62,7 @@ class ConnectionState:
         self._guilds: Dict[Snowflake, Guild] = {}
         self._channels: Dict[Snowflake, Channel] = {}
         self._messages: LRUCache = LRUCache(maxsize=5000)
+        self._relationships: Dict[Snowflake, Relationship] = {}
         self.user: Optional[User] = None
         self.session_id: Optional[str] = None
         self._ready = False
@@ -146,7 +149,12 @@ class ConnectionState:
         
         for channel_data in data.get("private_channels", []):
             self._add_channel(channel_data)
-        
+
+        for rel_data in data.get("relationships", []):
+            rel_id = Snowflake(rel_data["id"])
+            rel = Relationship(state=self, data=rel_data)
+            self._relationships[rel_id] = rel
+
         self._ready = True
         logger.info(f"Ready: {self.user} ({self.user.id})")
         return self.user
@@ -271,6 +279,106 @@ class ConnectionState:
         return data
 
     def parse_presence_update(self, data: dict) -> dict:
+        user_data = data.get("user")
+        if user_data and "id" in user_data:
+            user_id = Snowflake(user_data["id"])
+            user = self._users.get(user_id)
+            if user and len(user_data) > 1:
+                user._update({**{"id": user_data["id"], "username": user.name, "discriminator": user.discriminator, "avatar": user.avatar}, **user_data})
+        return data
+
+    def parse_relationship_add(self, data: dict) -> Relationship:
+        rel_id = Snowflake(data["id"])
+        rel = self._relationships.get(rel_id)
+        if rel:
+            rel._update(data)
+        else:
+            rel = Relationship(state=self, data=data)
+            self._relationships[rel_id] = rel
+        return rel
+
+    def parse_relationship_remove(self, data: dict) -> Optional[Relationship]:
+        rel_id = Snowflake(data["id"])
+        return self._relationships.pop(rel_id, None)
+
+    def parse_channel_recipient_add(self, data: dict) -> Optional[Channel]:
+        channel_id = Snowflake(data.get("channel_id", 0))
+        channel = self._channels.get(channel_id)
+        if channel and isinstance(channel, GroupChannel):
+            user_data = data.get("user")
+            if user_data:
+                user = self._add_user(user_data)
+                if user not in channel.recipients:
+                    channel.recipients.append(user)
+        return channel
+
+    def parse_channel_recipient_remove(self, data: dict) -> Optional[Channel]:
+        channel_id = Snowflake(data.get("channel_id", 0))
+        channel = self._channels.get(channel_id)
+        if channel and isinstance(channel, GroupChannel):
+            user_data = data.get("user")
+            if user_data:
+                user_id = int(user_data.get("id", 0))
+                channel.recipients = [u for u in channel.recipients if u.id != user_id]
+        return channel
+
+    def parse_guild_members_chunk(self, data: dict) -> dict:
+        guild_id = int(data.get("guild_id", 0))
+        guild = self._guilds.get(guild_id)
+        if guild:
+            for member_data in data.get("members", []):
+                user_data = member_data.get("user", {})
+                member_id = Snowflake(user_data.get("id", 0))
+                if member_id:
+                    existing = guild._members.get(member_id)
+                    if existing:
+                        existing._update(member_data)
+                    else:
+                        member = Member(state=self, data=member_data, guild_id=guild_id)
+                        guild._members[member.id] = member
+                    if user_data:
+                        self._add_user(user_data)
+        return data
+
+    def parse_message_reaction_add(self, data: dict) -> dict:
+        return data
+
+    def parse_message_reaction_remove(self, data: dict) -> dict:
+        return data
+
+    def parse_message_reaction_remove_all(self, data: dict) -> dict:
+        return data
+
+    def parse_message_reaction_remove_emoji(self, data: dict) -> dict:
+        return data
+
+    def parse_call_create(self, data: dict) -> dict:
+        return data
+
+    def parse_call_update(self, data: dict) -> dict:
+        return data
+
+    def parse_call_delete(self, data: dict) -> dict:
+        return data
+
+    def parse_voice_state_update(self, data: dict) -> dict:
+        return data
+
+    def parse_voice_server_update(self, data: dict) -> dict:
+        return data
+
+    def parse_thread_create(self, data: dict) -> Channel:
+        return self._add_channel(data)
+
+    def parse_thread_update(self, data: dict) -> Channel:
+        return self.parse_channel_update(data)
+
+    def parse_thread_delete(self, data: dict) -> Optional[Channel]:
+        return self.parse_channel_delete(data)
+
+    def parse_thread_list_sync(self, data: dict) -> dict:
+        for thread_data in data.get("threads", []):
+            self._add_channel(thread_data)
         return data
 
     @property
@@ -294,6 +402,7 @@ class ConnectionState:
         self._guilds.clear()
         self._channels.clear()
         self._messages.clear()
+        self._relationships.clear()
         self.user = None
         self.session_id = None
         self._ready = False

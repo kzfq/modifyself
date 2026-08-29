@@ -206,7 +206,7 @@ class HeaderSpoofer:
         except Exception:
             pass
 
-        fallback = 586984
+        fallback = 603738
         HeaderSpoofer._build_cache = fallback
         HeaderSpoofer._build_cache_time = now
         return fallback

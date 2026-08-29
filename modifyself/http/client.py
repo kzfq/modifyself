@@ -580,9 +580,114 @@ class HTTPClient:
     async def leave_guild(self, guild_id: int) -> None:
         await self.request(Route.leave_guild(guild_id))
 
+    async def edit_guild(self, guild_id: int, **kwargs) -> Dict[str, Any]:
+        return await self.request(Route.edit_guild(guild_id), json=kwargs)
+
+    async def fetch_guild_members(
+        self,
+        guild_id: int,
+        *,
+        limit: int = 1000,
+        after: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        params: Dict[str, Any] = {"limit": min(limit, 1000)}
+        if after:
+            params["after"] = str(after)
+        return await self.request(Route.guild_members(guild_id), params=params)
+
+    async def search_guild_members(
+        self,
+        guild_id: int,
+        query: str,
+        limit: int = 1,
+    ) -> List[Dict[str, Any]]:
+        return await self.request(
+            Route.search_guild_members(guild_id),
+            params={"query": query, "limit": min(limit, 1000)},
+        )
+
+    async def kick_member(self, guild_id: int, user_id: int, *, reason: Optional[str] = None) -> None:
+        await self.request(Route.kick_member(guild_id, user_id), reason=reason)
+
+    async def ban_member(
+        self,
+        guild_id: int,
+        user_id: int,
+        *,
+        delete_message_seconds: int = 0,
+        reason: Optional[str] = None,
+    ) -> None:
+        await self.request(
+            Route.ban_member(guild_id, user_id),
+            json={"delete_message_seconds": delete_message_seconds},
+            reason=reason,
+        )
+
+    async def unban_member(self, guild_id: int, user_id: int, *, reason: Optional[str] = None) -> None:
+        await self.request(Route.unban_member(guild_id, user_id), reason=reason)
+
+    async def fetch_guild_bans(self, guild_id: int) -> List[Dict[str, Any]]:
+        return await self.request(Route.guild_bans(guild_id))
+
+    async def fetch_guild_roles(self, guild_id: int) -> List[Dict[str, Any]]:
+        return await self.request(Route.guild_roles(guild_id))
+
+    async def create_role(self, guild_id: int, **kwargs) -> Dict[str, Any]:
+        return await self.request(Route.create_role(guild_id), json=kwargs)
+
+    async def edit_role(self, guild_id: int, role_id: int, **kwargs) -> Dict[str, Any]:
+        return await self.request(Route.edit_role(guild_id, role_id), json=kwargs)
+
+    async def delete_role(self, guild_id: int, role_id: int) -> None:
+        await self.request(Route.delete_role(guild_id, role_id))
+
+    # Invites
+    async def fetch_invite(self, invite_code: str) -> Dict[str, Any]:
+        return await self.request(Route.invite(invite_code))
+
+    async def delete_invite(self, invite_code: str, *, reason: Optional[str] = None) -> None:
+        await self.request(Route.delete_invite(invite_code), reason=reason)
+
+    # Threads
+    async def create_thread_from_message(
+        self,
+        channel_id: int,
+        message_id: int,
+        name: str,
+        *,
+        auto_archive_duration: int = 1440,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        payload = {"name": name, "auto_archive_duration": auto_archive_duration}
+        payload.update(kwargs)
+        return await self.request(Route.create_thread(channel_id, message_id), json=payload)
+
+    async def create_thread(
+        self,
+        channel_id: int,
+        name: str,
+        *,
+        type: int = 11,
+        auto_archive_duration: int = 1440,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        payload = {"name": name, "type": type, "auto_archive_duration": auto_archive_duration}
+        payload.update(kwargs)
+        return await self.request(Route.create_thread_in_channel(channel_id), json=payload)
+
     # DMs
     async def create_dm(self, recipient_id: int) -> Dict[str, Any]:
         return await self.request(
             Route.create_dm(),
             json={"recipient_id": str(recipient_id)},
         )
+
+    async def create_group_dm(self, access_tokens: List[str], nicks: Dict[str, str]) -> Dict[str, Any]:
+        return await self.request(
+            Route.create_group_dm(),
+            json={"access_tokens": access_tokens, "nicks": nicks},
+        )
+
+    # Relationships
+    async def fetch_relationships(self) -> List[Dict[str, Any]]:
+        return await self.request(Route.relationships())

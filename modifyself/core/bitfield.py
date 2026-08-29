@@ -120,10 +120,23 @@ class Permissions(Bitfield):
     SEND_MESSAGES_IN_THREADS = 1 << 38
     USE_EMBEDDED_ACTIVITIES = 1 << 39
     MODERATE_MEMBERS = 1 << 40
+    VIEW_CREATOR_MONETIZATION_ANALYTICS = 1 << 41
+    USE_SOUNDBOARD = 1 << 42
+    CREATE_EXPRESSIONS = 1 << 43
+    CREATE_EVENTS = 1 << 44
+    USE_EXTERNAL_SOUNDS = 1 << 45
+    SEND_VOICE_MESSAGES = 1 << 46
+    SET_VOICE_CHANNEL_STATUS = 1 << 48
+    SEND_POLLS = 1 << 49
+    USE_EXTERNAL_APPS = 1 << 50
+    PIN_MESSAGES = 1 << 51
+    BYPASS_SLOWMODE = 1 << 52
+    MANAGE_OFFICIAL_MESSAGES = 1 << 53
 
     @classmethod
     def all(cls) -> "Permissions":
-        return cls((1 << 41) - 1)
+        bits = sum(v for v in cls._member_map_.values())
+        return cls(bits)
 
 
 class UserFlags(Bitfield):
@@ -141,4 +154,5 @@ class UserFlags(Bitfield):
     VERIFIED_DEVELOPER = 1 << 17
     CERTIFIED_MODERATOR = 1 << 18
     BOT_HTTP_INTERACTIONS = 1 << 19
+    SPAMMER = 1 << 20
     ACTIVE_DEVELOPER = 1 << 22
