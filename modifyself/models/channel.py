@@ -22,7 +22,10 @@ class Channel(DiscordObject):
         self._update(data)
 
     def _update(self, data: dict):
-        self.type = ChannelType(data.get("type", 0))
+        try:
+            self.type = ChannelType(data.get("type", 0))
+        except ValueError:
+            self.type = data.get("type", 0)
         self.guild_id = int(data["guild_id"]) if "guild_id" in data else None
         self.position = data.get("position", 0)
         self.name = data.get("name")
@@ -173,9 +176,21 @@ def channel_factory(state: "ConnectionState", data: dict) -> Channel:
         return DMChannel(state=state, data=data)
     elif channel_type == ChannelType.GROUP_DM:
         return GroupChannel(state=state, data=data)
-    elif channel_type == ChannelType.GUILD_VOICE:
+    elif channel_type in (ChannelType.GUILD_VOICE, ChannelType.GUILD_STAGE_VOICE):
         return VoiceChannel(state=state, data=data)
     elif channel_type == ChannelType.GUILD_CATEGORY:
         return CategoryChannel(state=state, data=data)
+    elif channel_type in (
+        ChannelType.GUILD_ANNOUNCEMENT,
+        ChannelType.GUILD_FORUM,
+        ChannelType.GUILD_MEDIA,
+    ):
+        return TextChannel(state=state, data=data)
+    elif channel_type in (
+        ChannelType.ANNOUNCEMENT_THREAD,
+        ChannelType.PUBLIC_THREAD,
+        ChannelType.PRIVATE_THREAD,
+    ):
+        return TextChannel(state=state, data=data)
     else:
         return Channel(state=state, data=data)

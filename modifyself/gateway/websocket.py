@@ -10,6 +10,7 @@ import logging
 import zlib
 import time
 import random
+import math
 from typing import Optional, Dict, Any, Callable, Set, List, TYPE_CHECKING
 from enum import Enum
 
@@ -40,8 +41,8 @@ class GatewayWebSocket:
     GATEWAY = "wss://gateway.discord.gg/?encoding=json&v=9&compress=zlib-stream"
     ZLIB_SUFFIX = b"\x00\x00\xff\xff"
     
-    RESUME_CODES = {4000, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009}
-    FATAL_CODES = {4004, 4010, 4011, 4012, 4013, 4014}
+    RESUME_CODES = {4000, 4001, 4002, 4003, 4005, 4006, 4007, 4008, 4009}
+    FATAL_CODES = {4004, 4010, 4011, 4012, 4013, 4014, 4015, 4016}
 
     __slots__ = (
         "_dispatcher",
@@ -67,6 +68,7 @@ class GatewayWebSocket:
         "_processing_lock",
         "_heartbeat_interval",
         "_identify_sent",
+        "_connect_timestamp",
     )
 
     def __init__(
@@ -100,6 +102,7 @@ class GatewayWebSocket:
         self._processing_lock = asyncio.Lock()
         self._heartbeat_interval: Optional[float] = None
         self._identify_sent = False
+        self._connect_timestamp: int = 0
 
     @property
     def latency(self) -> float:
@@ -163,6 +166,7 @@ class GatewayWebSocket:
         self._buffer = bytearray()
         self._inflator = zlib.decompressobj()
         self._identify_sent = False
+        self._connect_timestamp = math.floor(time.time() * 1000)
         
         try:
             self._ws = await websockets.connect(
@@ -270,7 +274,7 @@ class GatewayWebSocket:
                 self._resume_gateway_url = data.get("resume_gateway_url")
                 self._identify_sent = True
                 logger.info(f"Gateway ready! Session: {self._session_id}")
-                asyncio.create_task(self._subscribe_to_guilds(data.get("guilds", [])))
+                asyncio.create_task(self._post_ready(data))
                 
             elif event == "RESUMED":
                 self._state = ConnectionState.CONNECTED
@@ -392,6 +396,17 @@ class GatewayWebSocket:
                     asyncio.create_task(self._reconnect())
                     break
 
+    async def _post_ready(self, ready_data: dict) -> None:
+        await self.send_json({
+            "op": 41,
+            "d": {
+                "initialization_timestamp": self._connect_timestamp,
+                "session_id": self._session_id,
+                "client_launch_id": self._headers._launch_id,
+            },
+        })
+        await self._subscribe_to_guilds(ready_data.get("guilds", []))
+
     async def _subscribe_to_guilds(self, guilds: list) -> None:
         if not guilds:
             return
@@ -426,8 +441,8 @@ class GatewayWebSocket:
             
         logger.info(f"Subscribed to {len(self._subscriptions)} guilds")
 
-    async def subscribe_channel(self, channel_id: int) -> None:
-        """Subscribe to typing/presence events in a DM or channel (op 13)."""
+    async def request_call_connect(self, channel_id: int) -> None:
+        """Request pre-existing call data for a private channel (op 13)."""
         await self.send_json({"op": 13, "d": {"channel_id": str(channel_id)}})
 
     async def send_json(self, data: dict) -> None:
