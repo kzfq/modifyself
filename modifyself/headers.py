@@ -9,8 +9,9 @@ import hashlib
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, List, Any, Union
 
+import urllib.request as _urllib_req
+
 from wreq import Emulation
-import requests as _requests
 
 _GREASE_BRANDS = [
     ('"Not A(Brand"', "99"),
@@ -72,8 +73,6 @@ class HeaderSpoofer:
         self._rng = random.Random(self._seed)
         self._emulation = emulation
         self.profile = self._make_profile()
-        self.session = _requests.Session()
-        self.session.headers.update({"User-Agent": self.profile.user_agent})
         self._async_client: Optional[Any] = None
         self.build_number = self._get_build_number()
         self._launch_id = str(uuid.uuid4())
@@ -105,11 +104,12 @@ class HeaderSpoofer:
 
         cache_file = os.path.join(os.path.dirname(__file__), ".chrome_version.json")
         try:
-            r = self.session.get(
+            _req = _urllib_req.Request(
                 "https://versionhistory.googleapis.com/v1/chrome/platforms/win/channels/stable/versions/all/releases?filter=endtime=none",
-                timeout=5,
+                headers={"User-Agent": "Mozilla/5.0"},
             )
-            data = r.json()
+            with _urllib_req.urlopen(_req, timeout=5) as _resp:
+                data = json.loads(_resp.read())
             latest = max(data["releases"], key=lambda x: [int(p) for p in x["version"].split(".")])
             major = latest["version"].split(".")[0]
             HeaderSpoofer._chrome_cache = {"major": major}
@@ -162,18 +162,20 @@ class HeaderSpoofer:
         build_cache_file = os.path.join(os.path.dirname(__file__), ".build_cache.json")
 
         try:
-            r = self.session.get(
+            _req1 = _urllib_req.Request(
                 "https://discord.com/login",
                 headers={"User-Agent": self.profile.user_agent},
-                timeout=30,
             )
-            scripts = re.findall(r'<script[^>]+src="(/assets/[^"]+\.js)"', r.text)
+            with _urllib_req.urlopen(_req1, timeout=30) as _resp1:
+                _html = _resp1.read().decode("utf-8", errors="replace")
+            scripts = re.findall(r'<script[^>]+src="(/assets/[^"]+\.js)"', _html)
             for path in reversed(scripts):
-                js = self.session.get(
+                _req2 = _urllib_req.Request(
                     f"https://discord.com{path}",
                     headers={"User-Agent": self.profile.user_agent},
-                    timeout=30,
                 )
+                with _urllib_req.urlopen(_req2, timeout=30) as _resp2:
+                    _js_text = _resp2.read().decode("utf-8", errors="replace")
                 for pat in [
                     r'buildNumber\s*[=:]\s*"?(\d{5,7})"?',
                     r'"buildNumber","(\d{5,7})"',
@@ -181,7 +183,7 @@ class HeaderSpoofer:
                     r'build_number["\s:=]+(\d{5,7})',
                     r'"(\d{6,7})"\s*,\s*"stable"',
                 ]:
-                    m = re.search(pat, js.text)
+                    m = re.search(pat, _js_text)
                     if m:
                         build = int(m.group(1))
                         HeaderSpoofer._build_cache = build
